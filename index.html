@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>D20 Master Customizer</title>
     <style>
-        body { margin: 0; background: #050505; overflow: hidden; font-family: 'Segoe UI', sans-serif; touch-action: manipulation; }
+        body { margin: 0; background: #050505; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; touch-action: none; }
         
-        /* Interfaz de Usuario */
         #ui-container {
             position: absolute;
             top: 15px;
@@ -17,11 +16,12 @@
             flex-direction: row;
             justify-content: center;
             gap: 10px;
-            background: rgba(15, 15, 15, 0.9);
+            background: rgba(20, 20, 20, 0.85);
             padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #333;
-            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid #444;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px); /* Específico para Safari */
             z-index: 100;
             max-width: 400px;
             margin: 0 auto;
@@ -32,7 +32,7 @@
             flex-direction: column;
             align-items: center;
             gap: 5px;
-            color: #bbb;
+            color: #ddd;
             font-size: 10px;
             letter-spacing: 1px;
             text-transform: uppercase;
@@ -42,17 +42,17 @@
         input[type="color"] {
             -webkit-appearance: none;
             border: none;
-            width: 100%;
-            height: 35px;
+            width: 40px;
+            height: 40px;
             cursor: pointer;
             background: transparent;
         }
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-        input[type="color"]::-webkit-color-swatch { border: 1px solid #444; border-radius: 4px; }
+        input[type="color"]::-webkit-color-swatch { border: 2px solid #555; border-radius: 50%; }
 
         #roll-container {
             position: absolute;
-            bottom: 30px;
+            bottom: 40px;
             width: 100%;
             display: flex;
             justify-content: center;
@@ -63,28 +63,28 @@
 
         button {
             width: 100%;
-            max-width: 300px;
-            padding: 18px;
-            font-size: 14px;
+            max-width: 280px;
+            padding: 20px;
+            font-size: 16px;
             cursor: pointer;
-            background: #fff;
-            color: #000;
+            background: #ffffff;
+            color: #000000;
             border: none;
-            border-radius: 4px;
-            letter-spacing: 3px;
+            border-radius: 50px;
+            letter-spacing: 2px;
             text-transform: uppercase;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            transition: transform 0.1s ease;
+            font-weight: 800;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
         }
-        button:active { transform: scale(0.95); }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        button:active { transform: scale(0.92); background: #eee; }
+        button:disabled { opacity: 0.5; transform: scale(1); }
 
-        /* Ajustes para Desktop */
         @media (min-width: 768px) {
-            #ui-container { flex-direction: column; left: 20px; top: 20px; right: auto; width: 160px; }
-            .control-group { flex-direction: row; justify-content: space-between; font-size: 11px; }
-            input[type="color"] { width: 35px; height: 35px; }
+            #ui-container { flex-direction: column; left: 20px; top: 20px; right: auto; width: 140px; }
+            .control-group { flex-direction: row; justify-content: space-between; }
         }
     </style>
 </head>
@@ -93,51 +93,51 @@
     <div id="ui-container">
         <div class="control-group">
             <label>Cuerpo</label>
-            <input type="color" id="picker-dado" value="#001a2c">
+            <input type="color" id="picker-dado" value="#1a2a6c">
         </div>
         <div class="control-group">
-            <label>Números</label>
+            <label>Texto</label>
             <input type="color" id="picker-texto" value="#ffffff">
         </div>
     </div>
 
     <div id="roll-container">
-        <button id="roll-btn">Lanzar Dado</button>
+        <button id="roll-btn">Lanzar D20</button>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
     <script>
-        // --- ESTADO INICIAL ---
         let colorDado = document.getElementById('picker-dado').value;
         let colorTexto = document.getElementById('picker-texto').value;
         let isRolling = false;
 
-        // --- ESCENA Y RENDERER ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        // Configuración Renderer para Safari
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            alpha: true,
+            powerPreference: "high-performance" 
+        });
+        renderer.setPixelRatio(window.devicePixelRatio > 2 ? 2 : window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
         document.body.appendChild(renderer.domElement);
 
-        // --- ILUMINACIÓN NEUTRA ---
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
-        keyLight.position.set(5, 8, 10);
-        scene.add(keyLight);
-
-        const rimLight = new THREE.PointLight(0xffffff, 10, 50);
-        rimLight.position.set(-5, 5, -5);
-        scene.add(rimLight);
-
-        // --- DADO D20 ---
-        const geometry = new THREE.IcosahedronGeometry(2, 0);
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
         
-        // Orientación UV: Punta del triángulo arriba
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+
+        // Geometría y Grupos
+        const geometry = new THREE.IcosahedronGeometry(2, 0);
+        geometry.clearGroups();
+        
         const uvAttr = geometry.attributes.uv;
         for (let i = 0; i < uvAttr.count; i += 3) {
             uvAttr.setXY(i, 0.5, 1.0);
@@ -147,137 +147,128 @@
 
         function createFaceTexture(text, cBody, cText) {
             const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 512;
+            canvas.width = 256; // Reducido para mejor performance en móviles
+            canvas.height = 256;
             const ctx = canvas.getContext('2d');
             
             ctx.fillStyle = cBody;
-            ctx.fillRect(0, 0, 512, 512);
+            ctx.fillRect(0, 0, 256, 256);
             
             ctx.fillStyle = cText;
-            ctx.font = 'bold 160px "Georgia", serif';
+            ctx.font = 'bold 80px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            // Sombra sutil para legibilidad
-            ctx.shadowColor = "rgba(0,0,0,0.5)";
-            ctx.shadowBlur = 10;
-            ctx.fillText(text, 256, 310);
+            ctx.fillText(text, 128, 140);
             
             const tex = new THREE.CanvasTexture(canvas);
-            tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
             return tex;
         }
 
         const materials = [];
-        geometry.clearGroups();
-        for (let i = 0; i < 20; i++) {
-            const mat = new THREE.MeshPhysicalMaterial({ 
-                map: createFaceTexture(i + 1, colorDado, colorTexto), 
-                roughness: 0.15, 
-                metalness: 0.05,
-                clearcoat: 0.4
+        for (let i = 1; i <= 20; i++) {
+            const mat = new THREE.MeshStandardMaterial({ 
+                map: createFaceTexture(i, colorDado, colorTexto),
+                roughness: 0.2,
+                metalness: 0.1
             });
             materials.push(mat);
-            geometry.addGroup(i * 3, 3, i);
+            geometry.addGroup((i-1) * 3, 3, i-1);
         }
 
         const die = new THREE.Mesh(geometry, materials);
         scene.add(die);
 
-        // --- DATA DE CARAS PARA EL SNAP ---
+        // Datos de caras para el alineamiento
         const facesData = [];
         const posAttr = geometry.attributes.position;
         for (let i = 0; i < posAttr.count; i += 3) {
             const vA = new THREE.Vector3().fromBufferAttribute(posAttr, i);
             const vB = new THREE.Vector3().fromBufferAttribute(posAttr, i + 1);
             const vC = new THREE.Vector3().fromBufferAttribute(posAttr, i + 2);
-            // Normal (hacia dónde mira) y Up (vértice superior para rotación de números)
-            const normal = new THREE.Vector3().crossVectors(vB.clone().sub(vA), vC.clone().sub(vA)).normalize();
+            const center = new THREE.Vector3().add(vA).add(vB).add(vC).divideScalar(3);
+            const normal = center.clone().normalize();
             facesData.push({ normal, up: vA.clone().normalize() });
         }
 
-        // --- FUNCIONES DE CONTROL ---
-        function updateCamera() {
+        function resize() {
             camera.aspect = window.innerWidth / window.innerHeight;
-            camera.position.z = window.innerWidth < window.innerHeight ? 15 : 10;
+            camera.position.z = window.innerWidth < 600 ? 12 : 8;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
-        window.addEventListener('resize', updateCamera);
-        updateCamera();
+        window.addEventListener('resize', resize);
+        resize();
 
-        function updateRealTime() {
+        function updateColors() {
             colorDado = document.getElementById('picker-dado').value;
             colorTexto = document.getElementById('picker-texto').value;
             materials.forEach((mat, i) => {
-                const oldTex = mat.map;
+                const prevTex = mat.map;
                 mat.map = createFaceTexture(i + 1, colorDado, colorTexto);
-                oldTex.dispose(); // Limpieza de memoria
+                if(prevTex) prevTex.dispose(); 
             });
         }
-        document.getElementById('picker-dado').addEventListener('input', updateRealTime);
-        document.getElementById('picker-texto').addEventListener('input', updateRealTime);
+        document.getElementById('picker-dado').oninput = updateColors;
+        document.getElementById('picker-texto').oninput = updateColors;
 
-        // --- LÓGICA DE LANZAMIENTO (SIN DEFORMACIÓN) ---
         const btn = document.getElementById('roll-btn');
-
-        function roll() {
+        btn.addEventListener('click', () => {
             if (isRolling) return;
             isRolling = true;
             btn.disabled = true;
 
-            // 1. Fase de rotación caótica
+            const randomRot = {
+                x: die.rotation.x + Math.PI * 4 + Math.random() * 10,
+                y: die.rotation.y + Math.PI * 4 + Math.random() * 10,
+                z: die.rotation.z + Math.PI * 4 + Math.random() * 10
+            };
+
             gsap.to(die.rotation, {
-                x: die.rotation.x + Math.random() * 25 + 15,
-                y: die.rotation.y + Math.random() * 25 + 15,
-                z: die.rotation.z + Math.random() * 25 + 15,
-                duration: 2.5,
-                ease: "power4.out",
+                x: randomRot.x,
+                y: randomRot.y,
+                z: randomRot.z,
+                duration: 2,
+                ease: "power2.out",
                 onComplete: () => {
-                    // 2. Cálculo de la cara que queda al frente
                     const camVec = new THREE.Vector3(0, 0, 1);
                     let maxDot = -1;
-                    let bestFace = facesData[0];
+                    let selected = facesData[0];
 
                     facesData.forEach(face => {
-                        const worldN = face.normal.clone().applyQuaternion(die.quaternion);
-                        const dot = worldN.dot(camVec);
-                        if (dot > maxDot) { maxDot = dot; bestFace = face; }
+                        const worldNormal = face.normal.clone().applyQuaternion(die.quaternion);
+                        const dot = worldNormal.dot(camVec);
+                        if (dot > maxDot) {
+                            maxDot = dot;
+                            selected = face;
+                        }
                     });
 
-                    // 3. Crear el Cuaternión objetivo (orientado y recto)
-                    const targetQ = new THREE.Quaternion();
-                    const m = new THREE.Matrix4();
-                    m.lookAt(bestFace.normal, new THREE.Vector3(0,0,0), bestFace.up);
-                    targetQ.setFromRotationMatrix(m).invert();
+                    const targetMatrix = new THREE.Matrix4();
+                    targetMatrix.lookAt(selected.normal, new THREE.Vector3(0,0,0), selected.up);
+                    const targetQuaternion = new THREE.Quaternion().setFromRotationMatrix(targetMatrix).invert();
 
-                    // 4. Slerp Animado para evitar estiramientos/deformaciones
                     const startQ = die.quaternion.clone();
-                    const proxy = { t: 0 };
-
-                    gsap.to(proxy, {
+                    const o = { t: 0 };
+                    gsap.to(o, {
                         t: 1,
-                        duration: 1.2,
-                        ease: "back.out(1.4)",
+                        duration: 0.8,
+                        ease: "back.out(1.2)",
                         onUpdate: () => {
-                            die.quaternion.slerpQuaternions(startQ, targetQ, proxy.t);
+                            die.quaternion.slerpQuaternions(startQ, targetQuaternion, o.t);
                         },
-                        onComplete: () => { 
-                            isRolling = false; 
-                            btn.disabled = false; 
-                            die.rotation.setFromQuaternion(die.quaternion);
+                        onComplete: () => {
+                            isRolling = false;
+                            btn.disabled = false;
                         }
                     });
                 }
             });
-        }
-
-        btn.onclick = roll;
+        });
 
         function animate() {
             requestAnimationFrame(animate);
-            if(!isRolling) { 
-                die.rotation.y += 0.003; 
-                die.rotation.z += 0.001; 
+            if (!isRolling) {
+                die.rotation.y += 0.005;
             }
             renderer.render(scene, camera);
         }
