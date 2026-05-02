@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>D20 Master Customizer</title>
+    <style>
+        body { margin: 0; background: #050505; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; touch-action: none; }
+        
+        #ui-container {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(20, 20, 20, 0.85);
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #444;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px); /* Específico para Safari */
+            z-index: 100;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            color: #ddd;
+            font-size: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            flex: 1;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: 2px solid #555; border-radius: 50%; }
+
+        #roll-container {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        button {
+            width: 100%;
+            max-width: 280px;
+            padding: 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            border-radius: 50px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-weight: 800;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        button:active { transform: scale(0.92); background: #eee; }
+        button:disabled { opacity: 0.5; transform: scale(1); }
+
+        @media (min-width: 768px) {
+            #ui-container { flex-direction: column; left: 20px; top: 20px; right: auto; width: 140px; }
+            .control-group { flex-direction: row; justify-content: space-between; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div class="control-group">
+            <label>Cuerpo</label>
+            <input type="color" id="picker-dado" value="#1a2a6c">
+        </div>
+        <div class="control-group">
+            <label>Texto</label>
+            <input type="color" id="picker-texto" value="#ffffff">
+        </div>
+    </div>
+
+    <div id="roll-container">
+        <button id="roll-btn">Lanzar D20</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <script>
+        let colorDado = document.getElementById('picker-dado').value;
+        let colorTexto = document.getElementById('picker-texto').value;
+        let isRolling = false;
+
+        // Configuración Renderer para Safari
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            alpha: true,
+            powerPreference: "high-performance" 
+        });
+        renderer.setPixelRatio(window.devicePixelRatio > 2 ? 2 : window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        document.body.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+
+        // Geometría y Grupos
+        const geometry = new THREE.IcosahedronGeometry(2, 0);
+        geometry.clearGroups();
+        
+        const uvAttr = geometry.attributes.uv;
+        for (let i = 0; i < uvAttr.count; i += 3) {
+            uvAttr.setXY(i, 0.5, 1.0);
+            uvAttr.setXY(i + 1, 0.0, 0.0);
+            uvAttr.setXY(i + 2, 1.0, 0.0);
+        }
+
+        function createFaceTexture(text, cBody, cText) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; // Reducido para mejor performance en móviles
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = cBody;
+            ctx.fillRect(0, 0, 256, 256);
+            
+            ctx.fillStyle = cText;
+            ctx.font = 'bold 80px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 128, 140);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            return tex;
+        }
+
+        const materials = [];
+        for (let i = 1; i <= 20; i++) {
+            const mat = new THREE.MeshStandardMaterial({ 
+                map: createFaceTexture(i, colorDado, colorTexto),
+                roughness: 0.2,
+                metalness: 0.1
+            });
+            materials.push(mat);
+            geometry.addGroup((i-1) * 3, 3, i-1);
+        }
+
+        const die = new THREE.Mesh(geometry, materials);
+        scene.add(die);
+
+        // Datos de caras para el alineamiento
+        const facesData = [];
+        const posAttr = geometry.attributes.position;
+        for (let i = 0; i < posAttr.count; i += 3) {
+            const vA = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+            const vB = new THREE.Vector3().fromBufferAttribute(posAttr, i + 1);
+            const vC = new THREE.Vector3().fromBufferAttribute(posAttr, i + 2);
+            const center = new THREE.Vector3().add(vA).add(vB).add(vC).divideScalar(3);
+            const normal = center.clone().normalize();
+            facesData.push({ normal, up: vA.clone().normalize() });
+        }
+
+        function resize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.position.z = window.innerWidth < 600 ? 12 : 8;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function updateColors() {
+            colorDado = document.getElementById('picker-dado').value;
+            colorTexto = document.getElementById('picker-texto').value;
+            materials.forEach((mat, i) => {
+                const prevTex = mat.map;
+                mat.map = createFaceTexture(i + 1, colorDado, colorTexto);
+                if(prevTex) prevTex.dispose(); 
+            });
+        }
+        document.getElementById('picker-dado').oninput = updateColors;
+        document.getElementById('picker-texto').oninput = updateColors;
+
+        const btn = document.getElementById('roll-btn');
+        btn.addEventListener('click', () => {
+            if (isRolling) return;
+            isRolling = true;
+            btn.disabled = true;
+
+            const randomRot = {
+                x: die.rotation.x + Math.PI * 4 + Math.random() * 10,
+                y: die.rotation.y + Math.PI * 4 + Math.random() * 10,
+                z: die.rotation.z + Math.PI * 4 + Math.random() * 10
+            };
+
+            gsap.to(die.rotation, {
+                x: randomRot.x,
+                y: randomRot.y,
+                z: randomRot.z,
+                duration: 2,
+                ease: "power2.out",
+                onComplete: () => {
+                    const camVec = new THREE.Vector3(0, 0, 1);
+                    let maxDot = -1;
+                    let selected = facesData[0];
+
+                    facesData.forEach(face => {
+                        const worldNormal = face.normal.clone().applyQuaternion(die.quaternion);
+                        const dot = worldNormal.dot(camVec);
+                        if (dot > maxDot) {
+                            maxDot = dot;
+                            selected = face;
+                        }
+                    });
+
+                    const targetMatrix = new THREE.Matrix4();
+                    targetMatrix.lookAt(selected.normal, new THREE.Vector3(0,0,0), selected.up);
+                    const targetQuaternion = new THREE.Quaternion().setFromRotationMatrix(targetMatrix).invert();
+
+                    const startQ = die.quaternion.clone();
+                    const o = { t: 0 };
+                    gsap.to(o, {
+                        t: 1,
+                        duration: 0.8,
+                        ease: "back.out(1.2)",
+                        onUpdate: () => {
+                            die.quaternion.slerpQuaternions(startQ, targetQuaternion, o.t);
+                        },
+                        onComplete: () => {
+                            isRolling = false;
+                            btn.disabled = false;
+                        }
+                    });
+                }
+            });
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!isRolling) {
+                die.rotation.y += 0.005;
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
